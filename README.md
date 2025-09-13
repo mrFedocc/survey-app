@@ -1,5 +1,5 @@
 
-### Готовый `README.md` (вставь как есть в корень репо)
+###`README.md`
 
 ```markdown
 # Survey App (monorepo)
@@ -9,7 +9,6 @@
 
 ## Архитектура
 ```
-
 survey-app/
 ├─ apps/
 │  ├─ web/   (Next.js 15 + Tailwind)
