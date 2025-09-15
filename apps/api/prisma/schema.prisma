@@ -7,29 +7,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Survey {
-  id        String    @id @default(cuid())
-  title     String
-  createdAt DateTime  @default(now())
-  questions Question[]
-}
-
 model Question {
   id        String   @id @default(cuid())
   text      String
   type      String
   order     Int
   surveyId  String
-  survey    Survey   @relation(fields: [surveyId], references: [id])
-  answers   Answer[]
   createdAt DateTime @default(now())
+  answers   Answer[]
+  options   Option[]
+  survey    Survey   @relation(fields: [surveyId], references: [id])
+}
+
+model Option {
+  id             String   @id @default(cuid())
+  questionId     String
+  label          String
+  value          String
+  nextQuestionId String?
+  question       Question @relation(fields: [questionId], references: [id])
 }
 
 model Answer {
   id         String   @id @default(cuid())
   questionId String
-  question   Question @relation(fields: [questionId], references: [id])
   value      String
   userId     String?
   createdAt  DateTime @default(now())
+  question   Question @relation(fields: [questionId], references: [id])
+}
+
+model Survey {
+  id              String     @id @default(cuid())
+  title           String
+  createdAt       DateTime   @default(now())
+  firstQuestionId String?
+  leads           Lead[]     @relation("SurveyLeads")
+  questions       Question[]
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  userId    String?
+  choices   String?
+  email     String?
+  telegram  String?
+  createdAt DateTime @default(now())
+  surveyId  String?
+  survey    Survey?  @relation("SurveyLeads", fields: [surveyId], references: [id])
 }
