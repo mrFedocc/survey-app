@@ -3,6 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import { SurveyModule } from './survey/survey.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), SurveyModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),  // ← грузит .env
+    SurveyModule,
+  ],
 })
 export class AppModule {}
