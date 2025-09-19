@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { GoogleSheetsService } from './google-sheets.service';
+
+const sheets = new GoogleSheetsService();
+
+// IDs твоих таблиц
+const SHEET_PER_ANSWER = '1ZqF_Wf6Pb89BIxnNbGpZiExgdLfpJ2NRyT8P2ueTLNQ';
+const SHEET_WIDE       = '1IpYF1_62Sc1Oz6i-QVA12qs3BUGLLwJm4IIFdh0Uwt8';
 
 const prisma = new PrismaClient();
 const leadKey = (surveyId?: string | null, userId?: string | null) =>
@@ -9,20 +16,21 @@ type MultiPayload = { selected: string[]; other?: string };
 
 @Injectable()
 export class SurveyService {
-  async start() {
-    const survey = await prisma.survey.findFirst({
-      orderBy: { createdAt: 'desc' },
-      include: { questions: true },
-    });
-    if (!survey) return { surveyId: null, questionId: null };
+  async start(surveyId?: string) {
+  const survey = await this.getActiveSurvey(surveyId); // уже есть в классе
+  const withQs = await prisma.survey.findUnique({
+    where: { id: survey.id },
+    include: { questions: true },
+  });
+  if (!withQs) return { surveyId: null, questionId: null };
 
-    const first =
-      survey.firstQuestionId ??
-      survey.questions.sort((a, b) => a.order - b.order)[0]?.id ??
-      null;
+  const first =
+    withQs.firstQuestionId ??
+    withQs.questions.sort((a, b) => a.order - b.order)[0]?.id ??
+    null;
 
-    return { surveyId: survey.id, questionId: first };
-  }
+  return { surveyId: withQs.id, questionId: first };
+}
 
   async getQuestion(id: string) {
     const q = await prisma.question.findUnique({
@@ -51,8 +59,52 @@ export class SurveyService {
       return { nextQuestionId: null };
     }
 
-    // Сохраняем ответ
-    await prisma.answer.create({ data: dto });
+    // Сохраняем ответ и получаем createdAt
+const saved = await prisma.answer.create({ data: dto });
+
+// Готовим строку для per-answer таблицы
+let answerLabel = '';
+let multiSelected = '';
+let multiLabels = '';
+let multiOther = '';
+
+if (q.type === 'single') {
+  const opt = q.options.find(o => o.value === dto.value);
+  answerLabel = opt?.label ?? '';
+} else if (q.type === 'multi') {
+  try {
+    const parsed = JSON.parse(dto.value) as { selected?: string[]; other?: string };
+    const sel = parsed.selected ?? [];
+    multiSelected = sel.join('|');
+    multiLabels = sel
+      .map(v => q.options.find(o => o.value === v)?.label ?? v)
+      .join('|');
+    multiOther = parsed.other ?? '';
+  } catch {/* ignore */}
+}
+
+// userId может быть undefined — нормализуем
+const userIdNorm = dto.userId ?? '';
+
+// Добавляем строку в Google Sheets (per-answer)
+try {
+  await sheets.appendRow(SHEET_PER_ANSWER, [
+    saved.createdAt.toISOString(), // createdAt
+    q.surveyId,                    // surveyId
+    userIdNorm,                    // userId
+    q.text,                        // question
+    q.type,                        // type
+    dto.value,                     // answer_value (raw)
+    answerLabel,                   // answer_label (для single)
+    multiSelected,                 // multi_selected
+    multiLabels,                   // multi_labels
+    multiOther                     // multi_other
+  ]);
+} catch (e) {
+  // Не роняем опрос из-за сетевых проблем — просто лог
+  console.error('Sheets append error:', e);
+}
+
 
     // Определяем следующий вопрос
     let nextQuestionId: string | null = null;
@@ -333,10 +385,10 @@ export class SurveyService {
     const pets = { dog: 0, cat: 0, both: 0, none: 0 };
     // Траты
     const spend: Record<string, number> = {
-      '<2000': 0,
-      '2000-5000': 0,
-      '5000-10000': 0,
-      '>10000': 0,
+      '20.000-25.000': 0,
+      '25.000-30.000': 0,
+      '30.000-40.000': 0,
+      '40.000+': 0,
     };
     // Возраст
     const age: Record<string, number> = { '<18': 0, '18-30': 0, '30-50': 0, '50<': 0 };
@@ -361,10 +413,11 @@ export class SurveyService {
             pets.none++;
             break;
 
-          case '<2000':
-          case '2000-5000':
-          case '5000-10000':
-          case '>10000':
+          
+          case '20.000-25.000':
+          case '25.000-30.000':
+          case '30.000-40.000':
+          case '40.000+':
             spend[r.value] = (spend[r.value] ?? 0) + 1;
             break;
 
@@ -405,71 +458,85 @@ export class SurveyService {
     return { scope: surveyId ? 'by-survey' : 'all-surveys', surveyId: surveyId ?? null, pets, spend, age, care, problems, leads };
   }
 
-  // ====== Демо-сидер (без изменений) ======
-  async seedFull() {
-    const survey = await prisma.survey.create({ data: { title: 'Pet Survey' } });
+  // ====== Демо-сидер (нужный порядок) ======
+async seedFull() {
+  const survey = await prisma.survey.create({
+    data: { title: 'Petly — опрос' },
+  });
 
-    // Q1: питомец (single) — развилки
-    const q1 = await prisma.question.create({
-      data: { surveyId: survey.id, order: 1, type: 'single', text: 'У вас есть питомец?' },
-    });
+  // Q1: питомец (single) — ПЕРВЫЙ
+  const qPet = await prisma.question.create({
+    data: { surveyId: survey.id, order: 1, type: 'single', text: 'У вас есть питомец?' },
+  });
 
-    // Q2: траты (категории single)
-    const q2 = await prisma.question.create({
-      data: { surveyId: survey.id, order: 2, type: 'single', text: 'Сколько денег вы тратите на питомца в месяц?' },
-    });
+  // Q2: траты (single)
+  const qSpend = await prisma.question.create({
+    data: { surveyId: survey.id, order: 2, type: 'single', text: 'Сколько денег Вы готовы выделить на наш ошейник?' },
+  });
 
-    // Q3: возраст (single)
-    const q3 = await prisma.question.create({
-      data: { surveyId: survey.id, order: 3, type: 'single', text: 'Ваш возраст' },
-    });
+  // Q3: возраст (single)
+  const qAge = await prisma.question.create({
+    data: { surveyId: survey.id, order: 3, type: 'single', text: 'Ваш возраст' },
+  });
 
-    // Q3b: интересно ли следить за здоровьем собаки? (single, да/нет)
-    const q3b = await prisma.question.create({
-      data: { surveyId: survey.id, order: 4, type: 'single', text: 'Интересно ли вам следить за здоровьем собаки?' },
-    });
+  // Q4: интерес к заботе (single)
+  const qCare = await prisma.question.create({
+    data: { surveyId: survey.id, order: 4, type: 'single', text: 'Интересно ли вам следить за здоровьем собаки?' },
+  });
 
-    // Q4: проблемы (multi)
-    const q4 = await prisma.question.create({
-      data: { surveyId: survey.id, order: 5, type: 'multi', text: 'С какими проблемами вы сталкивались?' },
-    });
+  // Q5: проблемы (multi) — последний
+  const qProblems = await prisma.question.create({
+    data: { surveyId: survey.id, order: 5, type: 'multi', text: 'Что было бы для Вас важным?' },
+  });
 
-    await prisma.survey.update({ where: { id: survey.id }, data: { firstQuestionId: q1.id } });
+  // Стартуем с Q1 (питомец)
+  await prisma.survey.update({
+    where: { id: survey.id },
+    data: { firstQuestionId: qPet.id },
+  });
 
-    await prisma.option.createMany({
-      data: [
-        // Q1
-        { questionId: q1.id, label: 'Собака', value: 'pets_dog', nextQuestionId: q2.id },
-        { questionId: q1.id, label: 'Кошка', value: 'pets_cat', nextQuestionId: q2.id },
-        { questionId: q1.id, label: 'И собака, и кошка', value: 'pets_both', nextQuestionId: q2.id },
-        { questionId: q1.id, label: 'Нет', value: 'pets_none', nextQuestionId: null },
-        // Q2
-        { questionId: q2.id, label: 'до 2000', value: '<2000', nextQuestionId: q3.id },
-        { questionId: q2.id, label: '2000–5000', value: '2000-5000', nextQuestionId: q3.id },
-        { questionId: q2.id, label: '5000–10000', value: '5000-10000', nextQuestionId: q3.id },
-        { questionId: q2.id, label: 'более 10000', value: '>10000', nextQuestionId: q3.id },
-        // Q3
-        { questionId: q3.id, label: '<18', value: '<18', nextQuestionId: q3b.id },
-        { questionId: q3.id, label: '18–30', value: '18-30', nextQuestionId: q3b.id },
-        { questionId: q3.id, label: '30–50', value: '30-50', nextQuestionId: q3b.id },
-        { questionId: q3.id, label: '50<', value: '50<', nextQuestionId: q3b.id },
-        // Q3b
-        { questionId: q3b.id, label: 'Да', value: 'yes', nextQuestionId: q4.id },
-        { questionId: q3b.id, label: 'Нет', value: 'no', nextQuestionId: q4.id },
-        // Q4 (multi)
-        { questionId: q4.id, label: 'Питомец убегал/терялся', value: 'lost' },
-        { questionId: q4.id, label: 'Боюсь, что убежит', value: 'fear' },
-        { questionId: q4.id, label: 'Тяжело найти в темноте', value: 'dark' },
-        { questionId: q4.id, label: 'Не люблю подписки/тарифы', value: 'pricing' },
-        { questionId: q4.id, label: 'Слабая батарея/сложно заряжать', value: 'battery' },
-        { questionId: q4.id, label: 'Неудобный/тяжёлый ошейник', value: 'collar' },
-        { questionId: q4.id, label: 'Приватность/безопасность', value: 'privacy' },
-        { questionId: q4.id, label: 'Другое', value: 'other' },
-      ],
-    });
+  // Опции
+  await prisma.option.createMany({
+    data: [
+      // Q1 -> Q2
+      { questionId: qPet.id, label: 'Собака', value: 'pets_dog', nextQuestionId: qSpend.id },
+      { questionId: qPet.id, label: 'Кошка', value: 'pets_cat', nextQuestionId: qSpend.id },
+      { questionId: qPet.id, label: 'И собака, и кошка', value: 'pets_both', nextQuestionId: qSpend.id },
+      { questionId: qPet.id, label: 'Нет', value: 'pets_none', nextQuestionId: qSpend.id },
 
-    return { surveyId: survey.id, firstQuestionId: q1.id };
-  }
+      // Q2 (траты) -> Q3
+      { questionId: qSpend.id, label: '20.000–25.000', value: '20.000-25.000', nextQuestionId: qAge.id },
+      { questionId: qSpend.id, label: '25.000–30.000', value: '25.000-30.000', nextQuestionId: qAge.id },
+      { questionId: qSpend.id, label: '30.000–40.000', value: '30.000-40.000', nextQuestionId: qAge.id },
+      { questionId: qSpend.id, label: '40.000+',       value: '40.000+',       nextQuestionId: qAge.id },
+
+      // Q3 (возраст) -> Q4
+      { questionId: qAge.id, label: '<18',   value: '<18',   nextQuestionId: qCare.id },
+      { questionId: qAge.id, label: '18–30', value: '18-30', nextQuestionId: qCare.id },
+      { questionId: qAge.id, label: '30–50', value: '30-50', nextQuestionId: qCare.id },
+      { questionId: qAge.id, label: '50<',   value: '50<',   nextQuestionId: qCare.id },
+
+      // Q4 (интерес к заботе) -> Q5
+      { questionId: qCare.id, label: 'Да',  value: 'yes', nextQuestionId: qProblems.id },
+      { questionId: qCare.id, label: 'Нет', value: 'no',  nextQuestionId: qProblems.id },
+
+      // Q5 (multi) — без nextQuestionId
+      { questionId: qProblems.id, label: 'Отслеживание питомца на карте',      value: 'track' },
+    { questionId: qProblems.id, label: 'Фонарик и звуковой сигнал в ошейнике', value: 'flashlight_beeper' },
+    { questionId: qProblems.id, label: 'Состояние здоровья питомца',         value: 'health' },
+    { questionId: qProblems.id, label: 'Онлайн камера прямо на ошейнике',    value: 'camera' },
+    { questionId: qProblems.id, label: 'Комфортный вес ошейника',            value: 'weight' },
+    { questionId: qProblems.id, label: 'Недорогие тарифы подписки',          value: 'pricing' },
+    { questionId: qProblems.id, label: 'Анализ активности питомца',          value: 'activity' },
+    { questionId: qProblems.id, label: 'Ничего из вышеперечисленного',       value: 'none' },  // эксклюзивная
+    { questionId: qProblems.id, label: 'Другое',                              value: 'other' }, // покажет инпут
+    ],
+  });
+
+  return { surveyId: survey.id, firstQuestionId: qPet.id };
+}
+
+
 
   // ====== Экспорты ALL (без изменений по сути) ======
   async exportAllCsv() {
@@ -581,4 +648,90 @@ export class SurveyService {
     }
     return lines.join('\n');
   }
+
+  /** Обновить wide-таблицу в Google Sheets (полной перезаписью) */
+async syncWideToSheets(surveyId?: string) {
+  // --- возьмем логику из exportWideCsv, но отдадим как матрицу значений ---
+  const active = await this.getActiveSurvey(surveyId);
+
+  const questions = await prisma.question.findMany({
+    where: { surveyId: active.id },
+    orderBy: { order: 'asc' },
+    include: { options: true },
+  });
+
+  const answers = await prisma.answer.findMany({
+    where: { question: { surveyId: active.id } },
+    orderBy: { createdAt: 'asc' },
+    include: { question: { include: { options: true } } },
+  });
+
+  const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' } });
+  const leadByKey = new Map(leads.map(l => [`${l.surveyId ?? ''}::${l.userId ?? ''}`, l]));
+
+  const byUser = new Map<string, typeof answers>();
+  for (const a of answers) {
+    const key = a.userId ?? '(anonymous)';
+    if (!byUser.has(key)) byUser.set(key, []);
+    byUser.get(key)!.push(a);
+  }
+
+  const header = [
+    'userId',
+    ...questions.map(q => q.text),
+    'contact_email',
+    'contact_telegram',
+    'choice_preorder',
+    'choice_partner',
+  ];
+  const table: any[][] = [header];
+
+  for (const [uid, list] of byUser) {
+    const dict = new Map<string, string>();
+    for (const r of list) {
+      if (r.question.type === 'single') {
+        const opt = r.question.options.find(o => o.value === r.value);
+        dict.set(r.questionId, opt?.label ?? r.value);
+      } else if (r.question.type === 'multi') {
+        try {
+          const parsed = JSON.parse(r.value) as { selected?: string[]; other?: string };
+          const labels = (parsed.selected ?? []).map(
+            v => r.question.options.find(o => o.value === v)?.label ?? v
+          );
+          const combined = [...labels, parsed.other ?? ''].filter(Boolean).join(' | ');
+          dict.set(r.questionId, combined);
+        } catch {
+          dict.set(r.questionId, r.value);
+        }
+      } else {
+        dict.set(r.questionId, r.value);
+      }
+    }
+
+    let email = '', telegram = '', preorder = '', partner = '';
+    const lead = leadByKey.get(`${active.id}::${uid === '(anonymous)' ? '' : uid}`);
+    if (lead) {
+      email = lead.email ?? '';
+      telegram = lead.telegram ?? '';
+      try {
+        const c = JSON.parse(lead.choices ?? '{}') as { preorder?: boolean; partner?: boolean };
+        preorder = c.preorder ? '1' : '0';
+        partner = c.partner ? '1' : '0';
+      } catch {}
+    }
+
+    table.push([
+      uid,
+      ...questions.map(q => dict.get(q.id) ?? ''),
+      email,
+      telegram,
+      preorder,
+      partner,
+    ]);
+  }
+
+  // перезаписываем wide-таблицу
+  await sheets.updateTable(SHEET_WIDE, table);
+}
+
 }

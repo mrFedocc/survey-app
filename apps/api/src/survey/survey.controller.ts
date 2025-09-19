@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { SurveyService } from './survey.service';
 import { ApiKeyGuard } from '../common/api-key.guard'; // путь проверь
 
+
 @Controller('survey')
 export class SurveyController {
   constructor(private readonly service: SurveyService) {}
@@ -13,10 +14,12 @@ export class SurveyController {
     return { ok: true };
   }
 
-  @Get('start')
-  start() {
-    return this.service.start();
+    @Get('start')
+  async start(@Query('s') s?: string) {
+    return this.service.start(s);
   }
+
+
 
   @Get('question/:id')
   question(@Param('id') id: string) {
@@ -94,4 +97,12 @@ export class SurveyController {
   listSurveys() {
     return this.service.listSurveys();
   }
+
+  @UseGuards(ApiKeyGuard)
+  @Post('sync-sheets')
+  async syncSheets(@Query('surveyId') surveyId?: string) {
+    await this.service.syncWideToSheets(surveyId);
+    return { ok: true };
+  }
+
 }

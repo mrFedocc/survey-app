@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "petly-472611",
+  "private_key_id": "2f50efb07e1b501c42dd985d03e084d9b7e675d5",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCbAmK0Lj6B2hPl\nQ8eWrt7Ae/bN3gzjZZoQV1ncFrxfMi8RwQhYe6cIilniNzow5Zjwmwecj29UPWne\nA/V+hGbgYEh0O8zjp7UWGIrz3YXqRsoi9J46nU52vVNCrQHAq09MpTIEtRqRxFDD\nSrX5xsOkbVPlba+EUYdUCkuPSsUS+AHtfJg8fI6stuw/+yh0yYvJLh6ulz4qJ/Nz\nkbNQm5OvWnSSvQ0vB2t5WBoObVSczw98CT2KDGS76GUFw80+3Xdr0h8prpVI4oTF\nWWzD6m3Hw480lzk5MA2M1NaWywu3Tg34dXNGgp96ZAMUUwfaW+Ba83XrxcCSPiT5\nO1Mww9U7AgMBAAECggEABXe0aECdVH05vcOB8xm197onqXlPS7zAuMTWrEG3tpqR\njcxuRpi4pT95Y4D+h3esc7Le4NyFA8aqyPmrcMwAyPdRzEUeZAVSs4soE5QDw5C9\nqTVRriWa/UCOWEgRS2zU05JGzQ20+Iv2gVJNpZgnkdGIEmFSaJYWR5ZEC141d1wZ\naIkTw9yGobm0U9twBrZngDsqibowNBK3dN1plUJvcwCoeeiFeVMyzKyXEefJ3jTs\nXc/R1QgzMDRE0tV05//E7wWe5VMa4wbCGQQZ93GIHYhwlBkJYZXc4ap79dwmOsiJ\nWikbmDqqvY9prQbfIW0IuX2MJQnkajle0zvYQbcDuQKBgQDNqFOvoB1Ozwh3kMeJ\nYIRf08uxGkHDZRLNvQKnaa4ly0eGfEwChViqSnb/szOF/hOI1prZDS7A7wl9C1uF\nhxs+3JJREmXENQz2NJrdmeUuvBSYwfInLv2O1GpDX59+LTapLECnWLsDaHIFRoD5\nXx/Gj0weToLVywvvgMAm37iTFQKBgQDA9Cc21rz0+eI0IhFXTSTsBs7Vbk5AhvcA\n60lp4pHNtWcKmLZJi3MDfsFilFkGUviEwYoLNW7o5VTFKBzuHQzecC4O9IxPMuGm\nqJGi9rEFHr5X89moNjV4YutfiM/sAqRkF8rhQ8w6L3Ws1uCxrtwIiRE3NmoR23xd\nMn3QQ7AbDwKBgEMU8d8qigTH0Uo25m8wFV2wlxN4rhTPJjgHvBLhjNV1HiqG5sA3\nwLkjOvei+15shvCul6nO+/4gumaYSs0eScvSZMOfDaTXbRfuBsnbxf7diJZfRN51\nHG33aYX6berZUqgR8DDl53JwIikIW098MMAyw7BrCZA0//qqc4L6nJkVAoGAMY6D\ng9IjNcf4EOuvCH0HvpcBCFAMSQZg6huD/23xhKPSkyYlqz3ljEBB6s+vDbDBo1cR\n3U8b7TT5UKm8xGsxou+s5KpqXuzyh5tDzFcPoAEFYhF/FXTWxtShHyhEPplvH0X9\nFV4UVd1am8mUbA489PQ/N68CDxQQHN+a8KJx2IECgYBeHZxu8N5h6hQRYFI1Skd7\nftoglTJ7dVinNr2wFSj6/+r1WJkGAjGS8/SnDVldNYa8wpGiGMz0ZRdV+xtotmyU\nsRICr3rIdsaG4T6ucpT4ZqOftJn0tQDgWUIkY+03au0LqE3v/Le69y6k9uZM7NBo\nawlwNq2VdoRxEDecUep15w==\n-----END PRIVATE KEY-----\n",
+  "client_email": "petlybot@petly-472611.iam.gserviceaccount.com",
+  "client_id": "101506065632166593376",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/petlybot%40petly-472611.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

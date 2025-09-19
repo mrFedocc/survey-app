@@ -28,6 +28,51 @@ function assertApi() {
   if (!API) throw new Error("NEXT_PUBLIC_API_URL не задан. Проверь apps/web/.env.local");
 }
 
+/** Унифицированный доступ к Crypto без any */
+function getCryptoObj(): Crypto | undefined {
+  // globalThis.crypto в браузерах и Node 18+
+  const g = typeof globalThis !== "undefined"
+    ? (globalThis as unknown as { crypto?: Crypto }).crypto
+    : undefined;
+  if (g) return g;
+
+  if (typeof window !== "undefined" && "crypto" in window) {
+    return (window as unknown as { crypto: Crypto }).crypto;
+  }
+  if (typeof self !== "undefined" && "crypto" in self) {
+    return (self as unknown as { crypto: Crypto }).crypto;
+  }
+  return undefined;
+}
+
+/** Безопасный UUID: randomUUID → getRandomValues → Math.random */
+function safeUUID(): string {
+  try {
+    const c = getCryptoObj();
+
+    if (c?.randomUUID) return c.randomUUID();
+
+    if (c?.getRandomValues) {
+      const buf = new Uint8Array(16);
+      c.getRandomValues(buf);
+      // RFC4122 v4
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const hex = Array.from(buf, b => b.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+  } catch {
+    /* ignore */
+  }
+  // Фоллбек: не криптостойко, но стабильно
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, ch => {
+    const r = (Math.random() * 16) | 0;
+    const v = ch === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+
 /** Базовый постоянный ID + одноразовый runId для каждого прогона */
 function getRunUserId(): string {
   if (typeof window === "undefined") return "";
@@ -35,13 +80,13 @@ function getRunUserId(): string {
   const RUN_KEY = "survey_run_id";
   let base = localStorage.getItem(BASE_KEY);
   if (!base) {
-    base = crypto.randomUUID();
-    localStorage.setItem(BASE_KEY, base);
+  base = safeUUID();
+  localStorage.setItem(BASE_KEY, base);
   }
   let run = sessionStorage.getItem(RUN_KEY);
   if (!run) {
-    run = `${crypto.randomUUID()}:${Date.now()}`;
-    sessionStorage.setItem(RUN_KEY, run);
+  run = `${safeUUID()}:${Date.now()}`;
+  sessionStorage.setItem(RUN_KEY, run);
   }
   return `${base}::${run}`;
 }
@@ -168,26 +213,35 @@ export default function SurveyPage() {
   );
 
   async function handleSingleSubmit(value: string) {
-    if (!question) return;
-    const res = await fetch(`${API}/survey/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, questionId: question.id, value }),
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      console.error("answer failed", res.status, t);
-      alert("Ошибка отправки ответа.");
-      return;
-    }
-    const data = await res.json();
-    setHistory((h) => [...h, question.id]);
-    if (data.nextQuestionId) setCurrentId(data.nextQuestionId);
-    else {
-      setQuestion(null);
-      setFinished(true);
-    }
+  if (!question) return;
+
+  // 🚫 Жёсткая проверка: без выбора не двигаемся
+  if (!value) {
+    alert("Пожалуйста, выберите вариант ответа");
+    return;
   }
+
+  const res = await fetch(`${API}/survey/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, questionId: question.id, value }),
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    console.error("answer failed", res.status, t);
+    alert("Ошибка отправки ответа.");
+    return;
+  }
+
+  const data = await res.json();
+  setHistory((h) => [...h, question.id]);
+  if (data.nextQuestionId) setCurrentId(data.nextQuestionId);
+  else {
+    setQuestion(null);
+    setFinished(true);
+  }
+}
 
   async function handleMultiSubmit(selected: string[], otherText?: string) {
     if (!question) return;
@@ -276,14 +330,18 @@ export default function SurveyPage() {
       {/* Hero-заголовок как на лендинге */}
       <header className="section pt-10 pb-6">
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Опрос Petly
+          <h1 className="flex items-baseline justify-center gap-2 text-4xl md:text-5xl font-black tracking-tight">
+            <span className="text-white">Опрос</span>
+            <span className="bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(236,72,153,0.35)]">
+              Petly
+            </span>
           </h1>
-          <p className="mt-3 text-white/70">
-            Ответьте на несколько вопросов — это займёт 1–2 минуты.
-          </p>
+        <p className="mt-3 text-white/70">
+          Ответьте на несколько вопросов — это займёт 1–2 минуты.
+        </p>
         </div>
       </header>
+
 
       {/* Прогресс */}
       <div className="section">
@@ -300,13 +358,15 @@ export default function SurveyPage() {
 
           {!loading && !finished && question && (
             <QuestionBlock
-              question={question}
-              onSubmitSingle={handleSingleSubmit}
-              onSubmitMulti={handleMultiSubmit}
-              onSubmitText={handleTextSubmit}
-              footer={<PrivacyNote />}
-            />
+            key={question.id}
+            question={question}
+            onSubmitSingle={handleSingleSubmit}
+            onSubmitMulti={handleMultiSubmit}
+            onSubmitText={handleTextSubmit}
+            footer={<PrivacyNote />}
+          />
           )}
+
 
           {!loading && (finished || (!question && !currentId)) && (
             <FinalBlock
@@ -410,6 +470,7 @@ function SingleQuestion({
         ))}
       </div>
       <button
+        type = "button"
         onClick={() => onSubmit(value)}
         className="w-full md:w-auto px-5 py-3 rounded-xl bg-brand-500 text-white font-semibold shadow-glow hover:bg-brand-600 active:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
         disabled={!value}
@@ -422,7 +483,7 @@ function SingleQuestion({
 }
 
 /** ===== Multi ===== */
-function MultiQuestion({
+  function MultiQuestion({
   title,
   options,
   onSubmit,
@@ -438,9 +499,31 @@ function MultiQuestion({
 
   const hasOther = options.some((o) => o.value === "other");
 
+  // эксклюзивность пункта "none" (Ничего из вышеперечисленного)
   function toggle(val: string) {
-    setSelected((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]));
+    setSelected((prev) => {
+      if (val === "none") return prev.includes("none") ? [] : ["none"];
+      const next = prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val];
+      return next.filter((x) => x !== "none");
+    });
+
+    // если снимаем чекбокс "other" — чистим текст
+    if (val === "other" && selected.includes("other")) {
+      setOther("");
+    }
   }
+
+  // если пользователь начинает печатать "Другое" — автоматически включаем чекбокс other
+  function onOtherChange(v: string) {
+    setOther(v);
+    if (v.trim() && !selected.includes("other")) {
+      setSelected((prev) => prev.filter((x) => x !== "none").concat("other"));
+    }
+  }
+
+  const canSubmit =
+    selected.length > 0 &&
+    !(selected.includes("other") && !other.trim()); // если выбран "Другое", текст обязателен
 
   return (
     <div>
@@ -471,7 +554,7 @@ function MultiQuestion({
           <input
             type="text"
             value={other}
-            onChange={(e) => setOther(e.target.value)}
+            onChange={(e) => onOtherChange(e.target.value)}
             className="w-full rounded-xl px-3 py-2 bg-white/5 border border-white/10 placeholder-white/40 text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50"
             placeholder="Укажите свой вариант"
           />
@@ -481,7 +564,7 @@ function MultiQuestion({
       <button
         onClick={() => onSubmit(selected, other.trim() || undefined)}
         className="w-full md:w-auto px-5 py-3 rounded-xl bg-brand-500 text-white font-semibold shadow-glow hover:bg-brand-600 active:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        disabled={!selected.length && !other.trim()}
+        disabled={!canSubmit}
       >
         Далее
       </button>
@@ -489,6 +572,7 @@ function MultiQuestion({
     </div>
   );
 }
+
 
 /** ===== Text ===== */
 function TextQuestion({
