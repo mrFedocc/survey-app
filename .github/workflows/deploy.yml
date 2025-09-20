@@ -27,23 +27,18 @@ jobs:
         with:
           node-version: 20
 
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-          pnpm -v
+      # СТАВИМ ТОЛЬКО ФРОНТ (apps/web) — npm, без pnpm и без монорепы
+      - name: Install deps (apps/web with npm)
+        run: npm ci --prefix apps/web
 
-      # Ставим зависимости ТОЛЬКО для фронта
-      - name: Install deps (apps/web only)
-        working-directory: apps/web
-        run: pnpm install --no-frozen-lockfile
+      # Билдим и экспортируем статический сайт
+      - name: Build web
+        run: npm run build --prefix apps/web
 
-      # Билдим статический сайт
-      - name: Build static web
-        working-directory: apps/web
-        run: pnpm run build:static
+      - name: Export static
+        run: npm run export --prefix apps/web
 
-      # Подготовка /docs + CNAME
+      # Готовим папку /docs и CNAME
       - name: Prepare /docs
         run: |
           rm -rf docs
@@ -51,7 +46,7 @@ jobs:
           cp -R apps/web/out/* docs/
           echo "survey.petly.moscow" > docs/CNAME
 
-      - name: Upload pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
