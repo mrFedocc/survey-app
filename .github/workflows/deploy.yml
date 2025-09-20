@@ -17,32 +17,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install deps (apps/web with npm)
+      - name: Install deps (apps/web)
         working-directory: apps/web
-        run: |
-          npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
-      # если у тебя монорепа и часть пакетов выше — оставь этот шаг.
-      # (не обязателен, если tailwind/postcss уже в devDependencies у apps/web)
-      # - name: Ensure tailwind deps
-      #   working-directory: apps/web
-      #   run: npm i -D tailwindcss postcss autoprefixer
-
-      - name: Build web (Next)
+      - name: Build web
         working-directory: apps/web
         run: |
           npx next build
           npx next export -o out
 
-      - name: Prepare /docs artifact
+      - name: Prepare /docs
         run: |
           rm -rf docs
           mkdir -p docs
