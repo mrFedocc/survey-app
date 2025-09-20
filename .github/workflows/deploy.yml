@@ -17,38 +17,41 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      # PNPM
-      - uses: pnpm/action-setup@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      # Node + кеш
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      # Ставим зависимости ТОЛЬКО для фронта (обходим несинхронный lock в apps/api)
-      - name: Install deps (web only)
-        run: pnpm install --no-frozen-lockfile -F ./apps/web
+      # ВАЖНО: ставим только фронт и отключаем frozen-lockfile,
+      # чтобы не падать из-за apps/api
+      - name: Install deps (web only; ignore lock drift)
+        run: pnpm --filter ./apps/web install --no-frozen-lockfile
 
-      # Сборка Next; при output: 'export' этого достаточно — 'out' формируется на этапе build
       - name: Build web
         run: pnpm -F web run build
 
-      # Добавим CNAME, .nojekyll и SPA-fallback в артефакт
+      # Кладём CNAME и .nojekyll в артефакт Pages
       - name: Prepare Pages extras
         run: |
           echo "survey.petly.moscow" > apps/web/out/CNAME
           touch apps/web/out/.nojekyll
-          if [ -f apps/web/out/index.html ]; then cp apps/web/out/index.html apps/web/out/404.html; fi
+          # запасной 404, если у тебя нет своего
+          if [ -f apps/web/out/index.html ] && [ ! -f apps/web/out/404.html ]; then cp apps/web/out/index.html apps/web/out/404.html; fi
 
-      # Заливаем артефакт для GitHub Pages
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/out
 
