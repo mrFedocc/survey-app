@@ -1,4 +1,4 @@
-name: Deploy survey to GitHub Pages
+name: Deploy web to GitHub Pages
 
 on:
   push:
@@ -17,26 +17,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable corepack + pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
 
-      - name: Install deps (no frozen lockfile)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install deps (workspace)
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build static (Next export)
+      - name: Build web (static)
         working-directory: apps/web
         run: pnpm run build:static
-
-      - name: Add CNAME
-        run: echo "survey.petly.moscow" > apps/web/out/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
