@@ -1,12 +1,12 @@
-name: Deploy survey.petly.moscow
+name: Deploy Web (apps/web) to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'apps/web/**'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy.yml'
+    # если хочешь триггерить только при изменениях во фронте — раскомментируй
+    # paths:
+    #   - 'apps/web/**'
+    #   - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,64 +15,56 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: 'pages-web'
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      # 1) Ставим Node (без cache: 'pnpm'!)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
 
-      # 2) Включаем pnpm через corepack, чтобы команда pnpm появилась в PATH
       - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: PNPM version
+        run: pnpm -v
+
+      # УСТАНОВКА ЗАВИСИМОСТЕЙ ТОЛЬКО ДЛЯ apps/web
+      # ВАЖНО: убиваем frozen-lockfile, иначе валится из-за апдейтов в других пакетах (apps/api)
+      - name: Install deps (web only, no frozen lockfile)
         run: |
-          corepack enable
-          corepack prepare pnpm@latest-8 --activate
-          pnpm -v
+          pnpm install --filter "./apps/web..." --no-frozen-lockfile
 
-      # 3) Кэшируем pnpm store (ускоряет установку)
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
-
-      # 4) На всякий случай убираем npm lock в web (чтобы Next не ругался на второй локфайл)
-      - name: Remove npm lockfile from web (if any)
-        run: rm -f apps/web/package-lock.json
-
-      # 5) Ставим зависимости ТОЛЬКО для фронта (api не трогаем)
-      - name: Install deps (web only)
-        run: pnpm --filter ./apps/web... install --no-frozen-lockfile
-
-      # 6) Билдим статик
+      # БИЛД + ЭКСПОРТ СТАТИКИ (ожидается, что в apps/web/package.json есть script build:static)
       - name: Build static web
-        run: pnpm --filter ./apps/web build:static
+        run: |
+          pnpm --filter "./apps/web" run build:static
 
-      # 7) Кладём CNAME внутрь артефакта
-      - name: Add CNAME
-        run: echo 'survey.petly.moscow' > apps/web/out/CNAME
+      # Кладём статику в /docs, чтобы отдать в Pages
+      - name: Prepare /docs
+        run: |
+          rm -rf docs
+          mkdir -p docs
+          rsync -a apps/web/out/ docs/
+          echo "survey.petly.moscow" > docs/CNAME
 
-      # 8) Отгружаем артефакт для GitHub Pages
-      - name: Upload pages artifact
+      - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/out
+          path: docs
 
   deploy:
     needs: build
