@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Гоним полностью статический экспорт, чтобы класть в /docs
-  output: 'export',
-  distDir: '.next',       // стандартный билд-каталог; экспорт пойдёт в out
-  images: { unoptimized: true }
+  output: 'export',          // нужен для next export
+  images: { unoptimized: true }, // статик экспорт + картинки
+  // другие нужные тебе опции — добавляй здесь
 };
 
 export default nextConfig;
