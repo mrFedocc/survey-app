@@ -1,9 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'export',          // включаем статический экспорт
+  images: { unoptimized: true }, // т.к. используется next/image
 };
-
-export default nextConfig;
+module.exports = nextConfig;
