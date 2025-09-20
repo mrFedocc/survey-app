@@ -1,3 +1,8 @@
-/* apps/web/app/globals.css */
-html, body { height: 100%; margin: 0; }
-*, *::before, *::after { box-sizing: border-box; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* твои глобальные стили ниже при желании */
+:root {
+  color-scheme: light dark;
+}
