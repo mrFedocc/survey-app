@@ -1,8 +1,14 @@
+// apps/web/next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',          // нужен для next export
-  images: { unoptimized: true }, // статик экспорт + картинки
-  // другие нужные тебе опции — добавляй здесь
+  // Для статического экспорта:
+  output: 'export',
+  images: {
+    unoptimized: true
+  },
+  // если нужен basePath — добавь здесь
+  // basePath: '',
+  // trailingSlash: true, // если нравится со слэшем на конце
 };
 
 export default nextConfig;
