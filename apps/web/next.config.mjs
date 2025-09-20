@@ -1,14 +1,11 @@
-// apps/web/next.config.mjs
+import path from "path";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Для статического экспорта:
-  output: 'export',
-  images: {
-    unoptimized: true
-  },
-  // если нужен basePath — добавь здесь
-  // basePath: '',
-  // trailingSlash: true, // если нравится со слэшем на конце
+  // если нужен статический экспорт:
+  output: "export",
+  // чтобы убрать ворнинг про «multiple lockfiles» в монорепо
+  outputFileTracingRoot: path.join(process.cwd(), "../..")
 };
 
 export default nextConfig;
