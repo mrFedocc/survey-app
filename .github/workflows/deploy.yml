@@ -1,26 +1,18 @@
-name: Deploy Web (apps/web) to GitHub Pages
+name: Build & Deploy (survey.petly.moscow)
 
 on:
   push:
     branches: [ main ]
-    # если хочешь триггерить только при изменениях во фронте — раскомментируй
-    # paths:
-    #   - 'apps/web/**'
-    #   - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: 'pages-web'
+  group: 'pages'
   cancel-in-progress: true
-
-env:
-  NODE_VERSION: '20'
-  NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
   build:
@@ -30,45 +22,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 1) Включаем corepack и активируем pnpm до setup-node,
+      #    чтобы actions/setup-node не падал, когда cache: 'pnpm'
+      - name: Enable corepack (pnpm)
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm -v
+
+      # 2) Ставим нужный Node и включаем кеш по pnpm-lock.yaml
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
 
-      - name: Enable corepack (pnpm)
-        run: corepack enable
-
-      - name: PNPM version
-        run: pnpm -v
-
-      # УСТАНОВКА ЗАВИСИМОСТЕЙ ТОЛЬКО ДЛЯ apps/web
-      # ВАЖНО: убиваем frozen-lockfile, иначе валится из-за апдейтов в других пакетах (apps/api)
+      # 3) Установка зависимостей (без frozen, чтобы не падать на рассинхроне)
       - name: Install deps (web only, no frozen lockfile)
-        run: |
-          pnpm install --filter "./apps/web..." --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
-      # БИЛД + ЭКСПОРТ СТАТИКИ (ожидается, что в apps/web/package.json есть script build:static)
+      # 4) Сборка фронта: apps/web -> out
+      #    (в package.json у apps/web должен быть скрипт "build:static": "next build && next export -o out")
       - name: Build static web
-        run: |
-          pnpm --filter "./apps/web" run build:static
+        working-directory: apps/web
+        run: pnpm run build:static
 
-      # Кладём статику в /docs, чтобы отдать в Pages
+      # 5) Готовим /docs и переносим туда out
       - name: Prepare /docs
         run: |
           rm -rf docs
           mkdir -p docs
-          rsync -a apps/web/out/ docs/
-          echo "survey.petly.moscow" > docs/CNAME
+          cp -R apps/web/out/* docs/
 
-      - name: Upload GitHub Pages artifact
+      # 6) CNAME для поддомена
+      - name: Add CNAME
+        run: echo "survey.petly.moscow" > docs/CNAME
+
+      # 7) Артефакт для GitHub Pages
+      - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: ./docs
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
