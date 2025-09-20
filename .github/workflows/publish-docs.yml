@@ -1,0 +1,68 @@
+name: Build & publish /docs
+
+on:
+  push:
+    branches: [ main ]
+    # Чтобы коммиты, которые обновляют только /docs, не запускали сборку по кругу
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: corepack enable
+      - run: corepack prepare pnpm@latest --activate
+      - run: pnpm -v
+
+      - name: Install deps
+        run: pnpm install
+
+      # ------ ПОД этот шаг подстроим выходную папку ------
+      - name: Build app
+        run: |
+          # Если у тебя Next.js в apps/web
+          pnpm --filter web build || true
+          pnpm --filter web export || true
+
+      - name: Detect build dir
+        id: out
+        run: |
+          if [ -d apps/web/out ]; then echo "dir=apps/web/out" >> $GITHUB_OUTPUT;
+          elif [ -d apps/web/dist ]; then echo "dir=apps/web/dist" >> $GITHUB_OUTPUT;
+          elif [ -d apps/web/build ]; then echo "dir=apps/web/build" >> $GITHUB_OUTPUT;
+          else echo "Не нашёл папку билда"; exit 1; fi
+
+      - name: Publish to /docs
+        run: |
+          # Сохраним CNAME, если он уже есть
+          if [ -f docs/CNAME ]; then mv docs/CNAME /tmp/CNAME; fi
+
+          rm -rf docs
+          mkdir -p docs
+          cp -r "${{ steps.out.outputs.dir }}/." docs/
+
+          # Вернём CNAME и добавим .nojekyll + SPA fallback
+          if [ -f /tmp/CNAME ]; then mv /tmp/CNAME docs/CNAME; else echo "survey.petly.moscow" > docs/CNAME; fi
+          touch docs/.nojekyll
+          if [ -f docs/index.html ]; then cp docs/index.html docs/404.html; fi
+
+      - name: Commit & push /docs
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: publish site to /docs [skip ci]"
+          file_pattern: docs/**
