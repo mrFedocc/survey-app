@@ -31,9 +31,12 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
+          run_install: false
 
-      - name: Install deps (workspace)
-        run: pnpm install --no-frozen-lockfile
+      # ВАЖНО: ставим зависимости ТОЛЬКО для фронта и без frozen-lockfile,
+      # чтобы не падать из-за apps/api
+      - name: Install deps for web (no frozen lockfile)
+        run: pnpm install --no-frozen-lockfile --filter "./apps/web..."
 
       - name: Build web (static)
         working-directory: apps/web
