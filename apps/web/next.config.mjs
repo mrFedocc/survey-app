@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Статическая сборка под GitHub Pages
+  // Собираем статический сайт (под GitHub Pages)
   output: 'export',
-  // Для статики нужны не-оптимизированные картинки
-  images: { unoptimized: true },
-  // trailingSlash полезен для статики (директории вместо файлов)
-  trailingSlash: true,
+
+  // Куда класть готовый статики
+  distDir: 'out',
+
+  // Если используешь внешние картинки — добавь нужные домены.
+  images: {
+    unoptimized: true
+  }
 };
 
 export default nextConfig;
