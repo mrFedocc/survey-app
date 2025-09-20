@@ -17,7 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,18 +26,16 @@ jobs:
         with:
           node-version: 20
 
-      # СТАВИМ ТОЛЬКО ФРОНТ (apps/web) — npm, без pnpm и без монорепы
+      # Ставим ТОЛЬКО фронт (apps/web) через npm
       - name: Install deps (apps/web with npm)
         run: npm ci --prefix apps/web
 
-      # Билдим и экспортируем статический сайт
       - name: Build web
         run: npm run build --prefix apps/web
 
       - name: Export static
         run: npm run export --prefix apps/web
 
-      # Готовим папку /docs и CNAME
       - name: Prepare /docs
         run: |
           rm -rf docs
