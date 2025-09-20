@@ -1,11 +1,12 @@
+// apps/web/app/admin/export/page.tsx
 export const dynamic = 'force-static';
-export const revalidate = 60;
+export const revalidate = 60; // можно 60/300/0; главное, чтобы не было динамики
 
 export default function AdminExportPage() {
   return (
-    <main style={{padding: 24}}>
-      <h1>Admin / Export</h1>
-      <p>Статическая страница экспорта. Если нужно ходить на API — дергай его из клиентского кода fetch’ем.</p>
+    <main style={{ padding: 24 }}>
+      <h1>Admin &rarr; Export</h1>
+      <p>Здесь будет экспорт данных.</p>
     </main>
   );
 }
