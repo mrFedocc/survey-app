@@ -18,19 +18,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
+      # Можно оставить corepack, если так привычнее
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.17.0 --activate
+      - run: pnpm -v
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: pnpm
-
-      - name: Install deps (no frozen lockfile)
-        run: pnpm install --no-frozen-lockfile
+      # ВАЖНО: не frozen-lockfile + фильтр только по фронту
+      - name: Install deps (web only, no frozen lockfile)
+        run: pnpm -w --filter ./apps/web... install --no-frozen-lockfile
+        # альтернативно, можно просто:
+        # run: pnpm install --no-frozen-lockfile
 
       - name: Build web (static export)
         run: pnpm --dir apps/web run build:static
