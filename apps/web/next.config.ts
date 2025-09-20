@@ -1,15 +1,19 @@
-import type { NextConfig } from 'next';
-import path from 'path';
+// apps/web/next.config.ts
+import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
-  // статическая сборка для GitHub Pages
-  output: 'export',
-  images: { unoptimized: true },
+  // если делаешь статический экспорт через `next export`, можно оставить так же
+  // output: 'export',
 
-  // чтобы не было ворнинга про "inferred workspace root"
-  experimental: {
-    outputFileTracingRoot: path.join(__dirname, '../..'),
-  },
-};
+  // это чтобы убрать предупреждение про "inferred workspace root"
+  outputFileTracingRoot: path.join(__dirname, '../../'),
 
-export default nextConfig;
+  // чтобы Next не требовал установленный eslint во время билда
+  eslint: { ignoreDuringBuilds: true },
+
+  // оставь пустым, если ничего из experimental не используешь
+  experimental: {}
+}
+
+export default nextConfig
