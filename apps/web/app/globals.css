@@ -1,0 +1,3 @@
+/* apps/web/app/globals.css */
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
