@@ -1,4 +1,4 @@
-name: Deploy survey.petly.moscow (GitHub Pages)
+name: Deploy survey to GitHub Pages
 
 on:
   push:
@@ -11,44 +11,32 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      # ВАЖНО: ставим только фронт и отключаем frozen-lockfile,
-      # чтобы не падать из-за apps/api
-      - name: Install deps (web only; ignore lock drift)
-        run: pnpm --filter ./apps/web install --no-frozen-lockfile
-
-      - name: Build web
-        run: pnpm -F web run build
-
-      # Кладём CNAME и .nojekyll в артефакт Pages
-      - name: Prepare Pages extras
+      - name: Enable corepack + pnpm
         run: |
-          echo "survey.petly.moscow" > apps/web/out/CNAME
-          touch apps/web/out/.nojekyll
-          # запасной 404, если у тебя нет своего
-          if [ -f apps/web/out/index.html ] && [ ! -f apps/web/out/404.html ]; then cp apps/web/out/index.html apps/web/out/404.html; fi
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install deps (no frozen lockfile)
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build static (Next export)
+        working-directory: apps/web
+        run: pnpm run build:static
+
+      - name: Add CNAME
+        run: echo "survey.petly.moscow" > apps/web/out/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
