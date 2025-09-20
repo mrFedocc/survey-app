@@ -1,4 +1,4 @@
-name: Build & Deploy (survey.petly.moscow)
+name: Build & Deploy Web (GitHub Pages)
 
 on:
   push:
@@ -11,53 +11,45 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # УСТАНОВКА ЗАВИСИМОСТЕЙ ВНУТРИ apps/web
-      - name: Install deps (apps/web)
-        working-directory: apps/web
-        run: npm install --no-audit --no-fund
-
-      # Если локального next нет — ставим без сохранения, чтобы был CLI
-      - name: Ensure Next CLI is available
+      - name: Install deps (apps/web with npm)
         working-directory: apps/web
         run: |
-          if [ ! -x node_modules/.bin/next ]; then
-            echo "next not found in apps/web, installing temporarily..."
-            npm install --no-save next@latest react react-dom
-          fi
+          npm ci --no-audit --no-fund
 
-      # БИЛД И ЭКСПОРТ ВНУТРИ apps/web
+      # если у тебя монорепа и часть пакетов выше — оставь этот шаг.
+      # (не обязателен, если tailwind/postcss уже в devDependencies у apps/web)
+      # - name: Ensure tailwind deps
+      #   working-directory: apps/web
+      #   run: npm i -D tailwindcss postcss autoprefixer
+
       - name: Build web (Next)
         working-directory: apps/web
-        run: npx next build
+        run: |
+          npx next build
+          npx next export -o out
 
-      - name: Export static
-        working-directory: apps/web
-        run: npx next export -o out
-
-      # Перекладываем экспорт в /docs и добавляем CNAME
-      - name: Prepare /docs
+      - name: Prepare /docs artifact
         run: |
           rm -rf docs
           mkdir -p docs
-          cp -R apps/web/out/* docs/
+          cp -r apps/web/out/* docs/
           echo "survey.petly.moscow" > docs/CNAME
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
@@ -68,9 +60,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    permissions:
-      pages: write
-      id-token: write
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
