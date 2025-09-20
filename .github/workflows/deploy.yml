@@ -26,23 +26,30 @@ jobs:
         with:
           node-version: 20
 
+      # УСТАНОВКА ЗАВИСИМОСТЕЙ ВНУТРИ apps/web
       - name: Install deps (apps/web)
-        run: npm install --prefix apps/web --no-audit --no-fund
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
 
-      # >>> ВАЖНО: если в apps/web нет локального next, доустанавливаем без сохранения
+      # Если локального next нет — ставим без сохранения, чтобы был CLI
       - name: Ensure Next CLI is available
+        working-directory: apps/web
         run: |
-          if [ ! -x "apps/web/node_modules/.bin/next" ]; then
+          if [ ! -x node_modules/.bin/next ]; then
             echo "next not found in apps/web, installing temporarily..."
-            npm install --prefix apps/web --no-save next@latest react react-dom
+            npm install --no-save next@latest react react-dom
           fi
 
+      # БИЛД И ЭКСПОРТ ВНУТРИ apps/web
       - name: Build web (Next)
-        run: npx --yes --prefix apps/web next build
+        working-directory: apps/web
+        run: npx next build
 
       - name: Export static
-        run: npx --yes --prefix apps/web next export -o out
+        working-directory: apps/web
+        run: npx next export -o out
 
+      # Перекладываем экспорт в /docs и добавляем CNAME
       - name: Prepare /docs
         run: |
           rm -rf docs
