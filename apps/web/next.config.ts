@@ -1,6 +1,11 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',          // включаем статический экспорт
-  images: { unoptimized: true }, // т.к. используется next/image
+// apps/web/next.config.ts
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  // главная настройка — статический экспорт в папку out
+  output: 'export',
+  // чтобы картинки работали на GitHub Pages
+  images: { unoptimized: true },
 };
-module.exports = nextConfig;
+
+export default nextConfig;
