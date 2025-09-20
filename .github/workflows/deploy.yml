@@ -27,16 +27,20 @@ jobs:
         with:
           fetch-depth: 1
 
+      # 1) Ставим Node (без cache: 'pnpm'!)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
+      # 2) Включаем pnpm через corepack, чтобы команда pnpm появилась в PATH
       - name: Enable corepack (pnpm)
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm -v
 
-      # Кешируем pnpm store — ускоряет установку зависимостей
+      # 3) Кэшируем pnpm store (ускоряет установку)
       - name: Resolve pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
@@ -48,22 +52,23 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-pnpm-
 
-      # На всякий случай уберём локфайл npm в web, чтобы не было варнинга Next
+      # 4) На всякий случай убираем npm lock в web (чтобы Next не ругался на второй локфайл)
       - name: Remove npm lockfile from web (if any)
         run: rm -f apps/web/package-lock.json
 
-      # Ставим зависимости ТОЛЬКО для фронта (не трогаем api)
+      # 5) Ставим зависимости ТОЛЬКО для фронта (api не трогаем)
       - name: Install deps (web only)
         run: pnpm --filter ./apps/web... install --no-frozen-lockfile
 
-      # Билдим статик и кладём CNAME внутрь артефакта
+      # 6) Билдим статик
       - name: Build static web
         run: pnpm --filter ./apps/web build:static
 
+      # 7) Кладём CNAME внутрь артефакта
       - name: Add CNAME
         run: echo 'survey.petly.moscow' > apps/web/out/CNAME
 
-      # Отправляем артефакт на GitHub Pages
+      # 8) Отгружаем артефакт для GitHub Pages
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
