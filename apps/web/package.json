@@ -10,6 +10,11 @@
     "start": "next start"
   },
   "dependencies": {
-    // твои зависимости (оставь как есть)
+    "next": "15.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
   }
 }
