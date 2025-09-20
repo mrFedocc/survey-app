@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: pages
   cancel-in-progress: true
 
 jobs:
@@ -22,59 +22,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) Включаем corepack и активируем pnpm до setup-node,
-      #    чтобы actions/setup-node не падал, когда cache: 'pnpm'
-      - name: Enable corepack (pnpm)
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
           pnpm -v
 
-      # 2) Ставим нужный Node и включаем кеш по pnpm-lock.yaml
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: |
-            pnpm-lock.yaml
-
-      # 3) Установка зависимостей (без frozen, чтобы не падать на рассинхроне)
-      - name: Install deps (web only, no frozen lockfile)
+      # Ставим зависимости ТОЛЬКО для фронта
+      - name: Install deps (apps/web only)
+        working-directory: apps/web
         run: pnpm install --no-frozen-lockfile
 
-      # 4) Сборка фронта: apps/web -> out
-      #    (в package.json у apps/web должен быть скрипт "build:static": "next build && next export -o out")
+      # Билдим статический сайт
       - name: Build static web
         working-directory: apps/web
         run: pnpm run build:static
 
-      # 5) Готовим /docs и переносим туда out
+      # Подготовка /docs + CNAME
       - name: Prepare /docs
         run: |
           rm -rf docs
           mkdir -p docs
           cp -R apps/web/out/* docs/
+          echo "survey.petly.moscow" > docs/CNAME
 
-      # 6) CNAME для поддомена
-      - name: Add CNAME
-        run: echo "survey.petly.moscow" > docs/CNAME
-
-      # 7) Артефакт для GitHub Pages
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./docs
+          path: docs
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
