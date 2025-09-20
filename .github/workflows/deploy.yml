@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Deploy survey.petly.moscow (GitHub Pages)
 
 on:
@@ -26,23 +25,29 @@ jobs:
         with:
           version: 9
 
-      # Node + cache
+      # Node + кеш
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      # Устанавливаем зависимости ТОЛЬКО для фронта
-      # (обходит ошибку frozen-lockfile из apps/api)
+      # Ставим зависимости ТОЛЬКО для фронта (обходим несинхронный lock в apps/api)
       - name: Install deps (web only)
-        run: pnpm --dir apps/web install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile -F ./apps/web
 
-      # Билдим статический сайт в apps/web/out
+      # Сборка Next; при output: 'export' этого достаточно — 'out' формируется на этапе build
       - name: Build web
-        run: pnpm --dir apps/web run build
+        run: pnpm -F web run build
 
-      # Загружаем артефакт для GitHub Pages
+      # Добавим CNAME, .nojekyll и SPA-fallback в артефакт
+      - name: Prepare Pages extras
+        run: |
+          echo "survey.petly.moscow" > apps/web/out/CNAME
+          touch apps/web/out/.nojekyll
+          if [ -f apps/web/out/index.html ]; then cp apps/web/out/index.html apps/web/out/404.html; fi
+
+      # Заливаем артефакт для GitHub Pages
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/out
