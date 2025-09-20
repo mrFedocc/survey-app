@@ -1,11 +1,11 @@
 export const dynamic = 'force-static';
+export const revalidate = 60;
 
-export default function ExportPage() {
+export default function AdminExportPage() {
   return (
-    <main style={{ padding: 24, fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <h1 style={{ margin: 0 }}>Export</h1>
-      <p>В статической сборке (GitHub Pages) серверные эндпоинты недоступны.</p>
-      <p>Сделай экспорт на клиенте или через отдельный API на сервере.</p>
+    <main style={{padding: 24}}>
+      <h1>Admin / Export</h1>
+      <p>Статическая страница экспорта. Если нужно ходить на API — дергай его из клиентского кода fetch’ем.</p>
     </main>
   );
 }
