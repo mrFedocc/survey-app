@@ -26,14 +26,22 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install deps (apps/web with npm)
+      - name: Install deps (apps/web)
         run: npm install --prefix apps/web --no-audit --no-fund
 
-      - name: Build web
-        run: npm run build --prefix apps/web
+      # >>> ВАЖНО: если в apps/web нет локального next, доустанавливаем без сохранения
+      - name: Ensure Next CLI is available
+        run: |
+          if [ ! -x "apps/web/node_modules/.bin/next" ]; then
+            echo "next not found in apps/web, installing temporarily..."
+            npm install --prefix apps/web --no-save next@latest react react-dom
+          fi
+
+      - name: Build web (Next)
+        run: npx --yes --prefix apps/web next build
 
       - name: Export static
-        run: npm run export --prefix apps/web
+        run: npx --yes --prefix apps/web next export -o out
 
       - name: Prepare /docs
         run: |
