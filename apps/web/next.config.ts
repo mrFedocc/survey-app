@@ -1,11 +1,15 @@
-// apps/web/next.config.ts
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
-  // главная настройка — статический экспорт в папку out
+  // статическая сборка для GitHub Pages
   output: 'export',
-  // чтобы картинки работали на GitHub Pages
   images: { unoptimized: true },
+
+  // чтобы не было ворнинга про "inferred workspace root"
+  experimental: {
+    outputFileTracingRoot: path.join(__dirname, '../..'),
+  },
 };
 
 export default nextConfig;
