@@ -1,19 +1,15 @@
-// apps/web/next.config.ts
 import type { NextConfig } from 'next'
 import path from 'path'
 
 const nextConfig: NextConfig = {
-  // если делаешь статический экспорт через `next export`, можно оставить так же
-  // output: 'export',
+  // Статический экспорт: результат будет в apps/web/out
+  output: 'export',
 
-  // это чтобы убрать предупреждение про "inferred workspace root"
+  // чтобы Next правильно трейсил файлы в монорепе
   outputFileTracingRoot: path.join(__dirname, '../../'),
 
-  // чтобы Next не требовал установленный eslint во время билда
-  eslint: { ignoreDuringBuilds: true },
-
-  // оставь пустым, если ничего из experimental не используешь
-  experimental: {}
+  // не валим билд из-за eslint в CI
+  eslint: { ignoreDuringBuilds: true }
 }
 
 export default nextConfig
