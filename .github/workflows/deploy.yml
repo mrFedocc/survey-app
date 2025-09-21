@@ -1,4 +1,4 @@
-name: Build & Deploy Web (GitHub Pages)
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -17,7 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,22 +26,21 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install deps (apps/web)
+      - name: Install deps (web)
         working-directory: apps/web
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Build web
+      - name: Build web (static export via next.config output:export)
         working-directory: apps/web
-        run: |
-          npx next build
-          npx next export -o out
+        run: npx next build
 
-      - name: Prepare /docs
+      - name: Prepare /docs (artifact root)
         run: |
           rm -rf docs
           mkdir -p docs
-          cp -r apps/web/out/* docs/
-          echo "survey.petly.moscow" > docs/CNAME
+          cp -R apps/web/out/* docs/
+          # если нужен CNAME в Pages – раскомментируй и подставь домен
+          # echo "survey.petly.moscow" > docs/CNAME
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
