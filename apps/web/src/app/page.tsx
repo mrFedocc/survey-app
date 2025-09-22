@@ -702,13 +702,13 @@ function FinalBlock({
         </button>
         {/* Глобальные выгрузки оставляем как у тебя на бэке */}
         <a
-          href={`${API}/survey/export-all.csv`}
+          href="/api/export?file=export-all"
           className="px-5 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-center"
         >
           Все ответы (все опросы)
         </a>
         <a
-          href={`${API}/survey/export-all-wide.csv`}
+          href="/api/export?file=export-all-wide"
           className="px-5 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-center"
         >
           Все опросы по пользователям
