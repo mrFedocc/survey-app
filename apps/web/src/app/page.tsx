@@ -25,7 +25,10 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 
 /** ===== Утилиты ===== */
 function assertApi() {
-  if (!API) throw new Error("NEXT_PUBLIC_API_URL не задан. Проверь apps/web/.env.local");
+  // во время билда/SSG глобального window нет — не валим билд
+  if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_API_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL не задан. Проверь Environment Variables в Vercel");
+  }
 }
 
 /** Унифицированный доступ к Crypto без any */
